@@ -40,7 +40,7 @@ global.walkingPlayer = nil
 global.pathingPlayer = nil
 global.previousPosition = nil
 global.previousDirection = nil
-
+global.maxPathfinderIterations = 1000
 --registrations
 script.on_event(defines.events.on_tick, function()
  	HandlePathEvent();
@@ -100,7 +100,7 @@ function FindPathTo(player_idx, x, y)
 	Debug("Received request to {" .. x .. ", " .. y .. "}")
     local pos = game.players[player_idx].position
     local dest =  { x = pos.x + x, y = pos.y + y}
-    local path = pathfinder.a_star(game.players[player_idx].surface, pos, dest , 10000)
+    local path = pathfinder.a_star(game.players[player_idx].surface, pos, dest , global.maxPathfinderIterations)
     if path ~= nil then
         WalkAlongPath(player_idx, path)
     else

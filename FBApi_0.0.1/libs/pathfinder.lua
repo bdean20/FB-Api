@@ -27,7 +27,7 @@
 
 require 'stdlib/area/tile'
 require 'libs/debug'
-require 'libs/priorityQueue'
+local HeapPriorityQueue = require 'libs/heapPriorityQueue'
  
 global.grid_scale = 1
 pathfinder = {}
@@ -81,9 +81,11 @@ function pathfinder.get_pathfinding_data(surface, start_pos, goal_pos, max_total
 
     local g_score = {}
 
-    local f_score = PriorityQueue()
-
-    f_score:put(pathfinder.heuristic_cost_estimate(start_tile, goal_tile), start_key)
+    local f_score = HeapPriorityQueue.new(function(a, b) 
+        return a.f_score < b.f_score
+    end, {})
+    
+    f_score:push(wrapFScore(start_key, pathfinder.heuristic_cost_estimate(start_tile, goal_tile)))
     g_score[start_key] = 0
 
     return
@@ -102,6 +104,10 @@ function pathfinder.get_pathfinding_data(surface, start_pos, goal_pos, max_total
     }
 end
 
+function wrapFScore(key, f_score)
+    return {key=key, f_score=f_score}
+end
+    
 function pathfinder.step_a_star(data)
     if data.iterations > data.max_total_iterations then
         data.completed = true
@@ -111,7 +117,8 @@ function pathfinder.step_a_star(data)
 
     local current_key = nil
     repeat 
-        p, current_key = data.f_score:pop()
+        local wrappedFScore = data.f_score:pop()
+        current_key = wrappedFScore.key
         if current_key == nil then
             data.completed = true
             return nil
@@ -133,14 +140,13 @@ function pathfinder.step_a_star(data)
     for _, neighbor in pairs(neighbors) do
         local key = pathfinder.node_key(neighbor)
         if not data.closed_set[key] then
-            local tentative_g_score = data.g_score[current_key] + pathfinder.heuristic_cost_estimate(current, neighbor)
-
+            local candidate_g_score = data.g_score[current_key] + pathfinder.heuristic_cost_estimate(current, neighbor)
             local neighbor_key = pathfinder.node_key(neighbor)
-            if not data.open_set[key] or tentative_g_score < data.g_score[neighbor_key] then
+            if not data.open_set[key] or candidate_g_score < data.g_score[neighbor_key] then
                 data.came_from[neighbor_key] = current
-                data.g_score[neighbor_key] = tentative_g_score
+                data.g_score[neighbor_key] = candidate_g_score
                 local f_score = data.g_score[neighbor_key] + pathfinder.heuristic_cost_estimate(neighbor, data.goal_pos)
-                data.f_score:put(f_score, neighbor_key)
+                data.f_score:push(wrapFScore(neighbor_key, f_score))
                 if not data.open_set[key] then
                     data.open_set[key] = neighbor
                 end
